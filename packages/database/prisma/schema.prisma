@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Base model for all tenant-aware models
+// Note: Prisma doesn't support inheritance in the schema DSL directly, 
+// so we must add tenantId to every model manually.
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users          User[]
+  accounts       Account[]
+  journalEntries JournalEntry[]
+  journalLines   JournalEntryLine[]
+  customers      Customer[]
+  products       Product[]
+  orders         Order[]
+  orderItems     OrderItem[]
+  invoices       Invoice[]
+  warehouses     Warehouse[]
+  stockMoves     StockMove[]
+  employees      Employee[]
+  attendance     Attendance[]
+  payrolls       Payroll[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(USER)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  USER
+  MANAGER
+}
+
+// Accounting Module
+model Account {
+  id          String   @id @default(uuid())
+  code        String
+  name        String
+  type        AccountType
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  journalLines JournalEntryLine[]
+
+  @@unique([tenantId, code])
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  date        DateTime
+  description String
+  reference   String?
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  lines       JournalEntryLine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model JournalEntryLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id])
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  debit          Decimal      @default(0)
+  credit         Decimal      @default(0)
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+}
+
+// Sales & CRM Module
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  orders    Order[]
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  sku         String
+  price       Decimal
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  orderItems  OrderItem[]
+  stockMoves  StockMove[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, sku])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  number      String
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  status      OrderStatus @default(DRAFT)
+  total       Decimal
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Decimal
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  number      String
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  status      InvoiceStatus @default(DRAFT)
+  total       Decimal
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+// Inventory Module
+model Warehouse {
+  id        String   @id @default(uuid())
+  name      String
+  location  String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  stockMoves StockMove[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockMove {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  quantity    Int
+  type        StockMoveType
+  reference   String?
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum StockMoveType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+// HR & Payroll Module
+model Employee {
+  id        String   @id @default(uuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  position  String
+  salary    Decimal
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  attendance Attendance[]
+  payrolls   Payroll[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  checkIn    DateTime
+  checkOut   DateTime?
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Payroll {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  periodStart DateTime
+  periodEnd   DateTime
+  basicSalary Decimal
+  deductions  Decimal
+  netSalary   Decimal
+  status      PayrollStatus @default(DRAFT)
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSED
+  PAID
+}
+
+
+
+
