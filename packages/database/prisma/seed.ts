@@ -27,8 +27,7 @@ async function main() {
         create: {
             email: 'admin@example.com',
             password: hashedPassword,
-            firstName: 'Admin',
-            lastName: 'User',
+            name: 'Admin User',
             role: 'ADMIN',
             tenantId: tenant.id,
         },
@@ -37,7 +36,7 @@ async function main() {
     console.log({ admin });
 
     // Create Chart of Accounts (Sample)
-    const accounts = [
+    const accounts: Array<{ code: string; name: string; type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' }> = [
         { code: '1001', name: 'Cash', type: 'ASSET' },
         { code: '1002', name: 'Bank', type: 'ASSET' },
         { code: '2001', name: 'Accounts Payable', type: 'LIABILITY' },
@@ -49,7 +48,9 @@ async function main() {
     for (const acc of accounts) {
         await prisma.account.create({
             data: {
-                ...acc,
+                code: acc.code,
+                name: acc.name,
+                type: acc.type,
                 tenantId: tenant.id,
             },
         });
