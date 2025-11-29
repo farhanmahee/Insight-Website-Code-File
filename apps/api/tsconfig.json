@@ -19,5 +19,9 @@
         "forceConsistentCasingInFileNames": false,
         "noFallthroughCasesInSwitch": false,
         "moduleResolution": "node16"
-    }
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
 }
